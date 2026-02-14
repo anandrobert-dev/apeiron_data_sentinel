@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apeiron Data Sentinel - Duplicate Checker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f7;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #1d1d1f;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #86868b;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        button {
+            background: #0071e3;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0077ed;
+        }
+
+        #results {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        pre {
+            background: #f5f5f7;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.8rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        th {
+            font-weight: 600;
+            color: #86868b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>Duplicate Checker MVP</h1>
+
+        <!-- Login Section -->
+        <div id="loginSection">
+            <h2>Authentication Required</h2>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" value="admin">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" value="admin123"
+                    style="width: 100%; padding: 0.8rem; border: 1px solid #d2d2d7; border-radius: 8px;">
+            </div>
+            <button onclick="login()">Login</button>
+            <p id="loginError" style="color: red; margin-top: 1rem;"></p>
+        </div>
+
+        <!-- Validation Section (Hidden until logged in) -->
+        <div id="validationSection" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <p>Logged in as: <strong><span id="currentUser"></span></strong></p>
+                <button onclick="logout()"
+                    style="padding: 0.5rem 1rem; font-size: 0.9rem; background: #86868b;">Logout</button>
+            </div>
+
+            <div class="form-group">
+                <label for="clientId">Client ID (UUID)</label>
+                <input type="text" id="clientId" placeholder="Enter Client UUID"
+                    value="ce7d88bf-061e-486e-bb6f-0277fc25fb77">
+                <small style="color: #666">Default: Test Client Alpha</small>
+            </div>
+
+            <div class="form-group">
+                <label for="fileUpload">Upload File (CSV/Excel)</label>
+                <input type="file" id="fileUpload" accept=".csv, .xlsx, .xls">
+            </div>
+
+            <button onclick="runValidation()">Run Duplicate Check</button>
+
+            <div id="results">
+                <h2>Results</h2>
+                <div id="stats"></div>
+                <h3>Sample Duplicates</h3>
+                <div id="tableContainer"></div>
+                <details>
+                    <summary>Raw API Response</summary>
+                    <pre id="jsonResponse"></pre>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = localStorage.getItem('authToken');
+        let username = localStorage.getItem('username');
+
+        // Check auth on load
+        if (authToken) {
+            showValidationUI(username);
+        }
+
+        async function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const errorP = document.getElementById('loginError');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    authToken = data.access_token;
+                    username = data.username;
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('username', username);
+                    showValidationUI(username);
+                    errorP.textContent = '';
+                } else {
+                    errorP.textContent = data.detail || 'Login failed';
+                }
+            } catch (err) {
+                errorP.textContent = 'Connection error: ' + err.message;
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            username = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('validationSection').style.display = 'none';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function showValidationUI(user) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('validationSection').style.display = 'block';
+            document.getElementById('currentUser').textContent = user;
+        }
+
+        async function runValidation() {
+            const clientId = document.getElementById('clientId').value.trim();
+            const fileInput = document.getElementById('fileUpload');
+            const resultsDiv = document.getElementById('results');
+
+            if (!clientId || !fileInput.files[0]) {
+                alert('Please enter Client ID and select a file.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('files', fileInput.files[0]);
+
+            const url = `/api/validation/run/${clientId}?rule_type=duplicate`;
+
+            try {
+                resultsDiv.style.opacity = '0.5';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                resultsDiv.style.opacity = '1';
+                resultsDiv.style.display = 'block';
+
+                document.getElementById('jsonResponse').textContent = JSON.stringify(data, null, 2);
+
+                if (response.ok) {
+                    // Display Stats
+                    const statsHtml = `
+                        <p><strong>Total Records:</strong> ${data.total_records}</p>
+                        <p><strong>Duplicates Found:</strong> <span class="badge badge-error">${data.duplicates_found}</span></p>
+                        <p><strong>Checked Fields:</strong> ${data.duplicate_fields.join(', ')}</p>
+                    `;
+                    document.getElementById('stats').innerHTML = statsHtml;
+
+                    // Display Warnings
+                    if (data.warnings && Object.keys(data.warnings).length > 0) {
+                        let warnHtml = '<div style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin-top: 1rem;"><h3>⚠️ Warnings</h3><ul>';
+                        for (const [key, val] of Object.entries(data.warnings)) {
+                            warnHtml += `<li>Rule for field <strong>${key}</strong> skipped: ${val} file(s) missing field.</li>`;
+                        }
+                        warnHtml += '</ul></div>';
+                        document.getElementById('stats').innerHTML += warnHtml;
+                    }
+
+                    // Display Table
+                    if (data.sample_rows && data.sample_rows.length > 0) {
+                        const headers = Object.keys(data.sample_rows[0]);
+                        let tableHtml = '<div style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 8px;"><table><thead><tr>';
+                        headers.forEach(h => tableHtml += `<th style="position: sticky; top: 0; background: #f5f5f7; z-index: 1;">${h}</th>`);
+                        tableHtml += '</tr></thead><tbody>';
+
+                        data.sample_rows.forEach(row => {
+                            tableHtml += '<tr>';
+                            headers.forEach(h => tableHtml += `<td>${row[h]}</td>`);
+                            tableHtml += '</tr>';
+                        });
+                        tableHtml += '</tbody></table></div>';
+                        document.getElementById('tableContainer').innerHTML = tableHtml;
+                    } else {
+                        document.getElementById('tableContainer').textContent = 'No duplicates found.';
+                    }
+                } else {
+                    if (response.status === 401) {
+                        alert('Session expired. Please login again.');
+                        logout();
+                    } else {
+                        document.getElementById('stats').innerHTML = `<p style="color: red">Error: ${data.detail || 'Unknown error'}</p>`;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Request failed');
+            }
+        }
+    </script>
+</body>
+
+</html>

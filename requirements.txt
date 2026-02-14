@@ -1,0 +1,26 @@
+
+# Validations & Data
+polars==1.22.0
+openpyxl==3.1.5
+xlsxwriter==3.2.0
+fastexcel==0.12.0
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.1
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+
+# API
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+httpx==0.28.1
+
+# Settings
+pydantic-settings==2.7.1

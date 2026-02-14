@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+*.md
+tests/
+nginx/
+pgbouncer/
+docker-compose*.yml
+alembic/
+uploads/
+logs/

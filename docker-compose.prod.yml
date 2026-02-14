@@ -1,0 +1,62 @@
+# Production Docker Compose overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  app:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    volumes:
+      - upload_data:/app/uploads
+    # Remove source code mount in production
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  postgres:
+    restart: always
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-8GB}"
+      - "-c"
+      - "work_mem=${PG_WORK_MEM:-256MB}"
+      - "-c"
+      - "max_connections=${PG_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "effective_cache_size=24GB"
+      - "-c"
+      - "maintenance_work_mem=2GB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=64MB"
+      - "-c"
+      - "random_page_cost=1.1"
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  nginx:
+    restart: always
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+
+  ollama:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 8G
